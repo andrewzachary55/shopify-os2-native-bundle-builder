@@ -1,0 +1,134 @@
+{%- comment -%}
+  Shopify OS 2.0 Native Slide-Out Cart Drawer With Free-Shipping Bar & Upsells (MIT)
+  Zero third-party apps · LTR & RTL ready via CSS logical properties
+  Source: https://codekit-studio.pages.dev/
+{%- endcomment -%}
+
+{{ 'bundle-drawer.css' | asset_url | stylesheet_tag }}
+
+{%- assign threshold_cents = section.settings.free_shipping_threshold | times: 100 -%}
+
+<aside
+  id="CodeKitCartDrawer"
+  class="ck-drawer ck-drawer--end"
+  role="dialog"
+  aria-modal="true"
+  aria-hidden="true"
+  aria-label="{{ section.settings.drawer_title }}"
+  data-ck-cart-drawer
+  data-ship-threshold-cents="{{ threshold_cents }}"
+  data-currency-symbol="{{ cart.currency.symbol | default: '$' }}"
+>
+  <div class="ck-drawer__backdrop" data-ck-close></div>
+  <div class="ck-drawer__panel">
+    <div class="ck-drawer__header">
+      <h2 class="ck-drawer__title">
+        {{ section.settings.drawer_title }} (<span data-ck-cart-count>{{ cart.item_count }}</span>)
+      </h2>
+      <button type="button" class="ck-icon-btn" data-ck-close aria-label="Close cart drawer">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+          <path d="M18 6L6 18M6 6l12 12"/>
+        </svg>
+      </button>
+    </div>
+
+    {%- if threshold_cents > 0 -%}
+      <div class="ck-ship-bar" data-ck-ship-bar>
+        <p class="ck-ship-bar__text" data-ck-ship-text>
+          {%- if cart.total_price >= threshold_cents -%}
+            {{ section.settings.free_shipping_unlocked_text }}
+          {%- else -%}
+            Add {{ threshold_cents | minus: cart.total_price | money }} more for free shipping
+          {%- endif -%}
+        </p>
+        <div class="ck-ship-bar__track">
+          {%- assign pct = cart.total_price | times: 100 | divided_by: threshold_cents -%}
+          {%- if pct > 100 -%}{%- assign pct = 100 -%}{%- endif -%}
+          <div class="ck-ship-bar__fill" data-ck-ship-fill style="width: {{ pct }}%;"></div>
+        </div>
+      </div>
+    {%- endif -%}
+
+    <div class="ck-drawer__body">
+      <div data-ck-cart-items>
+        {%- if cart.item_count == 0 -%}
+          <p class="ck-muted">{{ section.settings.empty_text }}</p>
+        {%- else -%}
+          {%- for item in cart.items -%}
+            <div class="ck-cart-item">
+              <div>
+                <strong>{{ item.product.title }}</strong>
+                <p class="ck-muted">
+                  {%- unless item.product.has_only_default_variant -%}{{ item.variant.title }} · {%- endunless -%}
+                  {{ item.final_line_price | money }}
+                </p>
+              </div>
+              <span class="ck-mono">x{{ item.quantity }}</span>
+            </div>
+          {%- endfor -%}
+        {%- endif -%}
+      </div>
+
+      {%- assign upsell_col = section.settings.upsell_collection -%}
+      {%- if upsell_col != blank and upsell_col.products_count > 0 -%}
+        <div class="ck-upsell">
+          <p class="ck-eyebrow">{{ section.settings.upsell_title }}</p>
+          {%- for prod in upsell_col.products limit: 2 -%}
+            {%- if prod.available -%}
+              <div class="ck-upsell__row">
+                <span>{{ prod.title }} · {{ prod.price | money }}</span>
+                <button
+                  type="button"
+                  class="ck-btn ck-btn--sm ck-btn--outline"
+                  data-ck-add="{{ prod.selected_or_first_available_variant.id }}"
+                >
+                  + Add
+                </button>
+              </div>
+            {%- endif -%}
+          {%- endfor -%}
+        </div>
+      {%- endif -%}
+    </div>
+
+    <form action="{{ routes.cart_url }}" method="post" class="ck-drawer__footer">
+      <label for="CodeKitCartNote" class="ck-label">{{ section.settings.note_label }}</label>
+      <input
+        id="CodeKitCartNote"
+        name="note"
+        value="{{ cart.note | escape }}"
+        class="ck-input"
+        placeholder="{{ section.settings.note_placeholder }}"
+      >
+      <div class="ck-cart-subtotal">
+        <span>Subtotal</span>
+        <strong class="ck-mono" data-ck-cart-subtotal>{{ cart.total_price | money }}</strong>
+      </div>
+      <p class="ck-cart-tax">Taxes and shipping calculated at checkout.</p>
+      <button type="submit" name="checkout" class="ck-btn ck-btn--primary ck-btn--full">
+        {{ section.settings.checkout_label }}
+      </button>
+    </form>
+  </div>
+</aside>
+
+<div id="CodeKitToast" class="ck-toast" role="status" aria-live="polite"></div>
+
+<script src="{{ 'bundle-drawer.js' | asset_url }}" defer></script>
+
+{% schema %}
+{
+  "name": "Native Cart Drawer",
+  "settings": [
+    { "type": "text", "id": "drawer_title", "label": "Drawer Title", "default": "Your Bag" },
+    { "type": "number", "id": "free_shipping_threshold", "label": "Free Shipping Threshold (whole currency, 0 to disable)", "default": 150 },
+    { "type": "text", "id": "free_shipping_unlocked_text", "label": "Unlocked Free Shipping Message", "default": "Complimentary express shipping unlocked!" },
+    { "type": "collection", "id": "upsell_collection", "label": "Cart Upsell Collection" },
+    { "type": "text", "id": "upsell_title", "label": "Upsell Heading", "default": "Essential Add-Ons" },
+    { "type": "text", "id": "empty_text", "label": "Empty Cart Message", "default": "Your cart is currently empty." },
+    { "type": "text", "id": "note_label", "label": "Order Note Label", "default": "Order note" },
+    { "type": "text", "id": "note_placeholder", "label": "Order Note Placeholder", "default": "Delivery instructions or gift note..." },
+    { "type": "text", "id": "checkout_label", "label": "Checkout Button Label", "default": "Proceed to Checkout" }
+  ]
+}
+{% endschema %}
